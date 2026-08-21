@@ -1,0 +1,76 @@
+{
+  "library": {
+    "id": "log4j",
+    "old_version": "1.x.x",
+    "new_version": "2.x.x",
+    "language": "Java"
+  },
+  "repository": "mtedone/podam",
+  "clone_url": "https://github.com/mtedone/podam.git",
+  "checked_out_commit": "2355399b19d0c622fe373edbcf1ec02198935e93",
+  "migration_commit": "dbbdd518623c67de0e3fa83e56e20462a063d7d3",
+  "migration_commit_url": "https://github.com/mtedone/podam/commit/dbbdd518623c67de0e3fa83e56e20462a063d7d3",
+  "migration_commit_message": "Introduced Spring application context and replaced Slf4j with log4j2",
+  "manifest_path": "pom.xml",
+  "transition": {
+    "is_migration": true,
+    "reason": "old_removed_and_new_added",
+    "before": {
+      "kind": "maven",
+      "exists": true,
+      "old": [
+        "org.slf4j:slf4j-log4j12:1.7.5"
+      ],
+      "new": [],
+      "bridge": [],
+      "parse_error": "xml_parse_error: unbound prefix: line 1, column 0"
+    },
+    "after": {
+      "kind": "maven",
+      "exists": true,
+      "old": [],
+      "new": [
+        "org.apache.logging.log4j:log4j-api:2.3",
+        "org.apache.logging.log4j:log4j-core:2.3"
+      ],
+      "bridge": [],
+      "parse_error": "xml_parse_error: unbound prefix: line 1, column 0"
+    },
+    "removed_old": [
+      "org.slf4j:slf4j-log4j12:1.7.5"
+    ],
+    "added_new": [
+      "org.apache.logging.log4j:log4j-api:2.3",
+      "org.apache.logging.log4j:log4j-core:2.3"
+    ],
+    "old_remains_after": false,
+    "bridge_only": false
+  },
+  "build": {
+    "tool": "maven",
+    "has_wrapper": false,
+    "java_target": "1.6",
+    "test_frameworks": [
+      "junit4"
+    ],
+    "test_file_count": 48
+  },
+  "expected_source_changes": [
+    "src/main/java/uk/co/jemos/podam/api/AbstractRandomDataProviderStrategy.java",
+    "src/main/java/uk/co/jemos/podam/api/NullExternalFactory.java",
+    "src/main/java/uk/co/jemos/podam/api/PodamFactoryImpl.java",
+    "src/main/java/uk/co/jemos/podam/api/PodamUtils.java",
+    "src/main/java/uk/co/jemos/podam/common/BeanValidationStrategy.java",
+    "src/test/java/uk/co/jemos/podam/test/stories/steps/thread/safety/PodamFactoryThreadSafeSteps.java",
+    "src/test/java/uk/co/jemos/podam/test/unit/MemoizationTest.java",
+    "src/test/java/uk/co/jemos/podam/test/unit/XMLDatatypeUnitTest.java"
+  ],
+  "files_importing_old_library": 1,
+  "conditions": {
+    "1_uses_old_version": true,
+    "2_has_local_tests": true,
+    "3_imports_library": true,
+    "4_manifest_and_source_changed": true
+  },
+  "notes": []
+}

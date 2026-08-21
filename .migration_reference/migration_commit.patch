@@ -1,0 +1,456 @@
+commit dbbdd518623c67de0e3fa83e56e20462a063d7d3
+Author: Marco Tedone <marco.tedone@gmail.com>
+Date:   Mon May 25 18:48:14 2015 +0100
+
+    Introduced Spring application context and replaced Slf4j with log4j2
+
+diff --git a/pom.xml b/pom.xml
+index b16aa98..8f9b656 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -17,6 +17,7 @@
+ 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+ 		<serenity.version>1.0.47</serenity.version>
+ 		<serenity.jbehave.version>1.0.21</serenity.jbehave.version>
++		<spring.version>4.1.6.RELEASE</spring.version>
+ 	</properties>
+ 
+ 	<url>http://mtedone.github.io/podam/</url>
+@@ -63,17 +64,17 @@
+ 			<timezone>UTC</timezone>
+ 			<url>http://www.linkedin.com/in/mtedone</url>
+ 		</developer>
+-		<developer>
++	</developers>
++
++	<contributors>
++		<contributor>
+ 			<name>Daniil Ivanov</name>
+ 			<email>daniil.ivanov@gmail.com</email>
+ 			<roles>
+-				<role>Committer</role>
++				<role>Contributor</role>
+ 			</roles>
+ 			<timezone>EET</timezone>
+-		</developer>
+-	</developers>
+-
+-	<contributors>
++		</contributor>
+ 		<contributor>
+ 			<name>Alec Ross</name>
+ 			<email>haelduksf@gmail.com</email>
+@@ -379,15 +380,19 @@
+ 			<version>1.0</version>
+ 		</dependency>
+ 		<dependency>
+-			<groupId>org.slf4j</groupId>
+-			<artifactId>slf4j-api</artifactId>
+-			<version>1.7.5</version>
++			<groupId>org.apache.logging.log4j</groupId>
++			<artifactId>log4j-api</artifactId>
++			<version>2.3</version>
+ 		</dependency>
+ 		<dependency>
+-			<groupId>org.slf4j</groupId>
+-			<artifactId>slf4j-log4j12</artifactId>
+-			<version>1.7.5</version>
+-			<scope>test</scope>
++			<groupId>org.apache.logging.log4j</groupId>
++			<artifactId>log4j-core</artifactId>
++			<version>2.3</version>
++		</dependency>
++		<dependency>
++			<groupId>org.apache.logging.log4j</groupId>
++			<artifactId>log4j-jcl</artifactId>
++			<version>2.2</version>
+ 		</dependency>
+ 		<dependency>
+ 			<groupId>javax.annotation</groupId>
+@@ -409,40 +414,44 @@
+ 		</dependency>
+ 		<dependency>
+ 			<groupId>org.springframework</groupId>
+-			<artifactId>spring-core</artifactId>
+-			<version>3.0.5.RELEASE</version>
++			<artifactId>spring-test</artifactId>
++			<version>${spring.version}</version>
+ 			<scope>test</scope>
+ 		</dependency>
++		<!-- Spring framework -->
+ 		<dependency>
+ 			<groupId>org.springframework</groupId>
+ 			<artifactId>spring-beans</artifactId>
+-			<version>3.0.5.RELEASE</version>
+-			<scope>test</scope>
++			<version>${spring.version}</version>
++		</dependency>
++		<dependency>
++			<groupId>org.springframework</groupId>
++			<artifactId>spring-core</artifactId>
++			<version>${spring.version}</version>
+ 		</dependency>
+ 		<dependency>
+ 			<groupId>org.springframework</groupId>
+ 			<artifactId>spring-context</artifactId>
+-			<version>3.0.5.RELEASE</version>
+-			<scope>test</scope>
++			<version>${spring.version}</version>
+ 		</dependency>
+ 		<dependency>
+ 			<groupId>org.springframework</groupId>
+-			<artifactId>spring-test</artifactId>
+-			<version>3.0.5.RELEASE</version>
+-			<scope>test</scope>
++			<artifactId>spring-context-support</artifactId>
++			<version>${spring.version}</version>
++		</dependency>
++		<dependency>
++			<groupId>org.springframework</groupId>
++			<artifactId>spring-expression</artifactId>
++			<version>${spring.version}</version>
+ 		</dependency>
+ 		<dependency>
+ 			<groupId>org.hibernate</groupId>
+ 			<artifactId>hibernate-validator</artifactId>
+ 			<version>4.2.0.Final</version>
+ 		</dependency>
+-		<dependency>
+-			<groupId>de.codecentric</groupId>
+-			<artifactId>jbehave-junit-runner</artifactId>
+-			<version>1.1.2</version>
+-		</dependency>
+ 
+-		<!-- Thucydide -->
++
++		<!-- Serenity-BDD -->
+ 		<dependency>
+ 			<groupId>net.serenity-bdd</groupId>
+ 			<artifactId>core</artifactId>
+diff --git a/src/main/java/uk/co/jemos/podam/api/AbstractRandomDataProviderStrategy.java b/src/main/java/uk/co/jemos/podam/api/AbstractRandomDataProviderStrategy.java
+index 168572f..7564355 100644
+--- a/src/main/java/uk/co/jemos/podam/api/AbstractRandomDataProviderStrategy.java
++++ b/src/main/java/uk/co/jemos/podam/api/AbstractRandomDataProviderStrategy.java
+@@ -4,16 +4,19 @@
+ package uk.co.jemos.podam.api;
+ 
+ import net.jcip.annotations.ThreadSafe;
+-import org.slf4j.Logger;
+-import org.slf4j.LoggerFactory;
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
+ import uk.co.jemos.podam.common.*;
+ 
+ import java.lang.annotation.Annotation;
+ import java.lang.reflect.Constructor;
+ import java.lang.reflect.Method;
+ import java.lang.reflect.Type;
+-import java.util.*;
++import java.util.Arrays;
++import java.util.Collection;
++import java.util.Map;
+ import java.util.Map.Entry;
++import java.util.Random;
+ import java.util.concurrent.ConcurrentHashMap;
+ import java.util.concurrent.ConcurrentMap;
+ import java.util.concurrent.atomic.AtomicBoolean;
+@@ -42,8 +45,7 @@ public abstract class AbstractRandomDataProviderStrategy implements RandomDataPr
+ 	// ------------------->> Constants
+ 
+ 	/** Application logger */
+-	private static final Logger LOG = LoggerFactory
+-			.getLogger(AbstractRandomDataProviderStrategy.class);
++	private static final Logger LOG = LogManager.getLogger(AbstractRandomDataProviderStrategy.class);
+ 
+ 	/** A RANDOM generator */
+ 	private static final Random RANDOM = new Random(System.currentTimeMillis());
+diff --git a/src/main/java/uk/co/jemos/podam/api/NullExternalFactory.java b/src/main/java/uk/co/jemos/podam/api/NullExternalFactory.java
+index d998678..42d8188 100644
+--- a/src/main/java/uk/co/jemos/podam/api/NullExternalFactory.java
++++ b/src/main/java/uk/co/jemos/podam/api/NullExternalFactory.java
+@@ -3,8 +3,8 @@
+  */
+ package uk.co.jemos.podam.api;
+ 
+-import org.slf4j.Logger;
+-import org.slf4j.LoggerFactory;
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
+ 
+ import java.lang.reflect.Type;
+ import java.util.Arrays;
+@@ -22,8 +22,7 @@ public class NullExternalFactory extends AbstractExternalFactory {
+ 	// ------------------->> Constants
+ 
+ 	/** Application logger */
+-	private static final Logger LOG = LoggerFactory
+-			.getLogger(NullExternalFactory.class);
++	private static final Logger LOG = LogManager.getLogger(NullExternalFactory.class);
+ 
+ 	// ------------------->> Constructors
+ 
+diff --git a/src/main/java/uk/co/jemos/podam/api/PodamFactoryImpl.java b/src/main/java/uk/co/jemos/podam/api/PodamFactoryImpl.java
+index 501a9c1..da80a23 100644
+--- a/src/main/java/uk/co/jemos/podam/api/PodamFactoryImpl.java
++++ b/src/main/java/uk/co/jemos/podam/api/PodamFactoryImpl.java
+@@ -5,9 +5,12 @@ package uk.co.jemos.podam.api;
+ 
+ import net.jcip.annotations.Immutable;
+ import net.jcip.annotations.ThreadSafe;
+-import org.slf4j.Logger;
+-import org.slf4j.LoggerFactory;
+ 
++
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
++import org.springframework.context.ApplicationContext;
++import org.springframework.context.support.ClassPathXmlApplicationContext;
+ import uk.co.jemos.podam.api.DataProviderStrategy.Order;
+ import uk.co.jemos.podam.common.*;
+ import uk.co.jemos.podam.exceptions.PodamMockeryException;
+@@ -23,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
+ import java.util.concurrent.ConcurrentMap;
+ import java.util.concurrent.atomic.AtomicReference;
+ 
++
+ /**
+  * The PODAM factory implementation
+  *
+@@ -50,8 +54,10 @@ public class PodamFactoryImpl implements PodamFactory {
+ 	private static final Object[] NO_ARGS = new Object[0];
+ 
+ 	/** Application logger */
+-	private static final Logger LOG = LoggerFactory
+-			.getLogger(PodamFactoryImpl.class.getName());
++	private static final Logger LOG = LogManager.getLogger(PodamFactoryImpl.class);
++
++
++	private ApplicationContext applicationContext;
+ 
+ 	// ------------------->> Instance / variables
+ 
+@@ -127,6 +133,7 @@ public class PodamFactoryImpl implements PodamFactory {
+ 			DataProviderStrategy strategy) {
+ 		this.externalFactory = externalFactory;
+ 		this.strategy = strategy;
++		applicationContext = new ClassPathXmlApplicationContext("META-INF/spring/podam.xml");
+ 	}
+ 
+ 	// ------------------->> Public methods
+diff --git a/src/main/java/uk/co/jemos/podam/api/PodamUtils.java b/src/main/java/uk/co/jemos/podam/api/PodamUtils.java
+index 10745e3..d433f26 100644
+--- a/src/main/java/uk/co/jemos/podam/api/PodamUtils.java
++++ b/src/main/java/uk/co/jemos/podam/api/PodamUtils.java
+@@ -3,8 +3,9 @@
+  */
+ package uk.co.jemos.podam.api;
+ 
+-import org.slf4j.Logger;
+-import org.slf4j.LoggerFactory;
++
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
+ import uk.co.jemos.podam.common.PodamExclude;
+ 
+ import java.lang.annotation.Annotation;
+@@ -39,7 +40,7 @@ public final class PodamUtils {
+ 			'2', '3', '4', '5', '6', '7', '8', '9', '_' };
+ 
+ 	/** The application logger. */
+-	private static final Logger LOG = LoggerFactory.getLogger(PodamUtils.class);
++	private static final Logger LOG = LogManager.getLogger(PodamUtils.class);
+ 
+ 	/** Non instantiable constructor */
+ 	private PodamUtils() {
+diff --git a/src/main/java/uk/co/jemos/podam/common/BeanValidationStrategy.java b/src/main/java/uk/co/jemos/podam/common/BeanValidationStrategy.java
+index ed49d61..4415a10 100644
+--- a/src/main/java/uk/co/jemos/podam/common/BeanValidationStrategy.java
++++ b/src/main/java/uk/co/jemos/podam/common/BeanValidationStrategy.java
+@@ -3,8 +3,9 @@
+  */
+ package uk.co.jemos.podam.common;
+ 
+-import org.slf4j.Logger;
+-import org.slf4j.LoggerFactory;
++
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
+ import uk.co.jemos.podam.api.PodamUtils;
+ import uk.co.jemos.podam.exceptions.PodamMockeryException;
+ 
+@@ -30,8 +31,7 @@ public class BeanValidationStrategy implements AttributeStrategy<Object> {
+ 
+ 	// ------------------->> Instance / Static variables
+ 
+-	private static final Logger LOG = LoggerFactory
+-			.getLogger(BeanValidationStrategy.class);
++	private static final Logger LOG = LogManager.getLogger(BeanValidationStrategy.class);
+ 
+ 	/** A RANDOM generator */
+ 	private static final Random RANDOM = new Random(System.currentTimeMillis());
+diff --git a/src/main/resources/META-INF/spring/podam.xml b/src/main/resources/META-INF/spring/podam.xml
+new file mode 100644
+index 0000000..96eaf63
+--- /dev/null
++++ b/src/main/resources/META-INF/spring/podam.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<beans xmlns="http://www.springframework.org/schema/beans"
++       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++       xsi:schemaLocation="http://www.springframework.org/schema/beans
++      http://www.springframework.org/schema/beans/spring-beans.xsd">
++
++
++
++</beans>
+\ No newline at end of file
+diff --git a/src/main/resources/log4j.properties b/src/main/resources/log4j.properties
+deleted file mode 100644
+index 61b9605..0000000
+--- a/src/main/resources/log4j.properties
++++ /dev/null
+@@ -1,7 +0,0 @@
+-log4j.rootCategory=INFO, S
+-
+-log4j.logger.uk.co.jemos.podam=INFO
+-
+-log4j.appender.S = org.apache.log4j.ConsoleAppender
+-log4j.appender.S.layout = org.apache.log4j.PatternLayout
+-log4j.appender.S.layout.ConversionPattern = %d{yyyy-MM-dd HH:mm:ss} %c{1} [%p] %m%n
+diff --git a/src/main/resources/log4j2.xml b/src/main/resources/log4j2.xml
+new file mode 100644
+index 0000000..7aecced
+--- /dev/null
++++ b/src/main/resources/log4j2.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<Configuration status="WARN">
++    <Appenders>
++        <Console name="Console" target="SYSTEM_OUT">
++            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
++        </Console>
++    </Appenders>
++    <Loggers>
++        <Root level="ERROR">
++            <AppenderRef ref="Console"/>
++        </Root>
++        <Logger name="uk.co.jemos.podam" level="INFO" additivity="false">
++            <AppenderRef ref="Console" />
++        </Logger>
++        <Logger name="org.springframework" level="WARN" additivity="false">
++            <AppenderRef ref="Console" />
++        </Logger>
++    </Loggers>
++</Configuration>
+\ No newline at end of file
+diff --git a/src/test/java/uk/co/jemos/podam/test/stories/steps/thread/safety/PodamFactoryThreadSafeSteps.java b/src/test/java/uk/co/jemos/podam/test/stories/steps/thread/safety/PodamFactoryThreadSafeSteps.java
+index 90e44c3..f0b466d 100644
+--- a/src/test/java/uk/co/jemos/podam/test/stories/steps/thread/safety/PodamFactoryThreadSafeSteps.java
++++ b/src/test/java/uk/co/jemos/podam/test/stories/steps/thread/safety/PodamFactoryThreadSafeSteps.java
+@@ -1,7 +1,8 @@
+ package uk.co.jemos.podam.test.stories.steps.thread.safety;
+ 
+ import net.thucydides.core.annotations.Step;
+-import org.apache.log4j.Logger;
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
+ import org.junit.Assert;
+ import uk.co.jemos.podam.api.PodamFactory;
+ import uk.co.jemos.podam.api.PodamFactoryImpl;
+@@ -20,7 +21,7 @@ import java.util.concurrent.FutureTask;
+ public class PodamFactoryThreadSafeSteps {
+ 
+     /** The application logger */
+-    private static final Logger LOG = Logger.getLogger(PodamFactoryThreadSafeSteps.class);
++    private static final Logger LOG = LogManager.getLogger(PodamFactoryThreadSafeSteps.class);
+ 
+     private PodamFactory podamFactory;
+ 
+diff --git a/src/test/java/uk/co/jemos/podam/test/unit/MemoizationTest.java b/src/test/java/uk/co/jemos/podam/test/unit/MemoizationTest.java
+index c1417c3..b863b93 100644
+--- a/src/test/java/uk/co/jemos/podam/test/unit/MemoizationTest.java
++++ b/src/test/java/uk/co/jemos/podam/test/unit/MemoizationTest.java
+@@ -1,31 +1,25 @@
+ package uk.co.jemos.podam.test.unit;
+ 
+-import java.util.Currency;
+-import java.util.HashSet;
+-import java.util.Set;
+-
+-import javax.xml.ws.Holder;
+-
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
+ import org.junit.Assert;
+ import org.junit.Test;
+-import org.slf4j.Logger;
+-import org.slf4j.LoggerFactory;
+-
+-import uk.co.jemos.podam.api.AbstractRandomDataProviderStrategy;
+-import uk.co.jemos.podam.api.AttributeMetadata;
+-import uk.co.jemos.podam.api.DataProviderStrategy;
+-import uk.co.jemos.podam.api.PodamFactory;
+-import uk.co.jemos.podam.api.PodamFactoryImpl;
++import uk.co.jemos.podam.api.*;
+ import uk.co.jemos.podam.test.dto.MemoizationPojo;
+ import uk.co.jemos.podam.test.dto.RecursivePojo;
+ import uk.co.jemos.podam.test.dto.SimplePojoToTestSetters;
+ import uk.co.jemos.podam.test.utils.PodamTestUtils;
+ 
++import javax.xml.ws.Holder;
++import java.util.Currency;
++import java.util.HashSet;
++import java.util.Set;
++
+ /**
+  * Created by Victor on 21/08/14.
+  */
+ public class MemoizationTest {
+-	private static final Logger LOG = LoggerFactory.getLogger(MemoizationTest.class);
++	private static final Logger LOG = LogManager.getLogger(MemoizationTest.class);
+ 
+ 	private static final DataProviderStrategy strategy = new AbstractRandomDataProviderStrategy() {
+ 		@Override
+diff --git a/src/test/java/uk/co/jemos/podam/test/unit/XMLDatatypeUnitTest.java b/src/test/java/uk/co/jemos/podam/test/unit/XMLDatatypeUnitTest.java
+index 602b66d..30fd568 100644
+--- a/src/test/java/uk/co/jemos/podam/test/unit/XMLDatatypeUnitTest.java
++++ b/src/test/java/uk/co/jemos/podam/test/unit/XMLDatatypeUnitTest.java
+@@ -1,19 +1,19 @@
+ package uk.co.jemos.podam.test.unit;
+ 
+-import java.lang.reflect.Type;
+-import java.util.GregorianCalendar;
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
++import org.junit.Assert;
++import org.junit.Test;
++import uk.co.jemos.podam.api.AbstractExternalFactory;
++import uk.co.jemos.podam.api.PodamFactory;
++import uk.co.jemos.podam.api.PodamFactoryImpl;
++import uk.co.jemos.podam.test.dto.XMLDatatypePojo;
+ 
+ import javax.xml.datatype.DatatypeFactory;
+ import javax.xml.datatype.Duration;
+ import javax.xml.datatype.XMLGregorianCalendar;
+-
+-import org.junit.Assert;
+-import org.junit.Test;
+-import org.slf4j.Logger;
+-import org.slf4j.LoggerFactory;
+-
+-import uk.co.jemos.podam.api.*;
+-import uk.co.jemos.podam.test.dto.XMLDatatypePojo;
++import java.lang.reflect.Type;
++import java.util.GregorianCalendar;
+ 
+ /**
+  * Test @uk.co.jemos.podam.test.dto.JAXBElementPojo@ construction
+@@ -23,7 +23,7 @@ import uk.co.jemos.podam.test.dto.XMLDatatypePojo;
+  */
+ public class XMLDatatypeUnitTest {
+ 
+-	private static final Logger LOG = LoggerFactory.getLogger(XMLDatatypeUnitTest.class);
++	private static final Logger LOG = LogManager.getLogger(XMLDatatypeUnitTest.class);
+ 
+ 	private final static PodamFactory externalFactory =
+ 			new AbstractExternalFactory() {
