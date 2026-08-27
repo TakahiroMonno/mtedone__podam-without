@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="S" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %c{1} [%p] %m%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger name="uk.co.jemos.podam" level="INFO"/>
+        <Root level="INFO">
+            <AppenderRef ref="S"/>
+        </Root>
+    </Loggers>
+</Configuration>
