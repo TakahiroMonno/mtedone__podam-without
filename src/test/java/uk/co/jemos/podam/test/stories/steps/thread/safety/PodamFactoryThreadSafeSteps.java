@@ -1,7 +1,8 @@
 package uk.co.jemos.podam.test.stories.steps.thread.safety;
 
 import net.thucydides.core.annotations.Step;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.junit.Assert;
 import uk.co.jemos.podam.api.PodamFactory;
 import uk.co.jemos.podam.api.PodamFactoryImpl;
@@ -20,7 +21,7 @@ import java.util.concurrent.FutureTask;
 public class PodamFactoryThreadSafeSteps {
 
     /** The application logger */
-    private static final Logger LOG = Logger.getLogger(PodamFactoryThreadSafeSteps.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PodamFactoryThreadSafeSteps.class);
 
     private PodamFactory podamFactory;
 
@@ -83,9 +84,9 @@ public class PodamFactoryThreadSafeSteps {
         SimplePojoToTestSetters pojo2 = null;
         try {
             pojo1 = future1.get();
-            LOG.info(pojo1);
+            LOG.info("pojo1: {}", pojo1);
             pojo2 = future2.get();
-            LOG.info(pojo2);
+            LOG.info("pojo2: {}", pojo2);
             results.add(pojo1);
             results.add(pojo2);
         } catch (InterruptedException e) {
